@@ -17,9 +17,6 @@ return [
             'useTablePrefix' => true,
             'migrationPath' => '@database/migrations',
         ],
-        'schemadump' => [
-            'class' => 'jamband\schemadump\SchemaDumpController',
-        ],
         'schedule' => [
             'class' => \omnilight\scheduling\ScheduleController::className(),
             'scheduleFile' => '@app/schedule.php'

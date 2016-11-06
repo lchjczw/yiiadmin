@@ -6,16 +6,18 @@
  * Time: 下午3:35
  */
 
-namespace console\controllers;
+namespace install\console;
 
 
 use yii\console\Controller;
 use Yii;
 use yii\helpers\Console;
 
-class AppController extends Controller
+/**
+ * @property \install\Module $module
+ */
+class DefaultController extends Controller
 {
-    public $defaultAction = 'install';
 
     public $writablePaths = [
         '@root/runtime',
@@ -27,10 +29,6 @@ class AppController extends Controller
     public $executablePaths = [
         '@root/yii',
     ];
-
-    public $envPath = '@root/.env';
-
-    public $installFile = '@root/web/storage/install.txt';
 
     public function actionSetWritable()
     {
@@ -44,7 +42,7 @@ class AppController extends Controller
 
     public function actionSetKeys()
     {
-        $this->setKeys($this->envPath);
+        $this->module->setKeys($this->module->envPath);
     }
 
     public function setWritable($paths)
@@ -65,35 +63,22 @@ class AppController extends Controller
         }
     }
 
-    public function setKeys($file)
-    {
-        $file = Yii::getAlias($file);
-        Console::output("Generating keys in {$file}");
-        $content = file_get_contents($file);
-        $content = preg_replace_callback('/<generated_key>/', function () {
-            $length = 32;
-            $bytes = openssl_random_pseudo_bytes(32, $cryptoStrong);
-            return strtr(substr(base64_encode($bytes), 0, $length), '+/', '_-');
-        }, $content);
-        file_put_contents($file, $content);
-    }
-
     public function actionSetDb()
     {
         do {
-            $dbHost = $this->prompt('dbhost(默认为中括号内的值)' . PHP_EOL, ['default' => '127.0.0.1']);
-            $dbPort = $this->prompt('dbport(默认为中括号内的值)' . PHP_EOL, ['default' => '3306']);
-            $dbDbname = $this->prompt('dbname(不存在则自动创建)' . PHP_EOL, ['default' => 'yii']);
-            $dbUsername = $this->prompt('dbusername(默认为中括号内的值)' . PHP_EOL, ['default' => 'root']);
-            $dbPassword = $this->prompt('dbpassword' . PHP_EOL);
+            $dbHost = $this->prompt('数据库地址(默认为中括号内的值)' . PHP_EOL, ['default' => '127.0.0.1']);
+            $dbPort = $this->prompt('端口(默认为中括号内的值)' . PHP_EOL, ['default' => '3306']);
+            $dbDbname = $this->prompt('数据库名称(不存在则自动创建)' . PHP_EOL, ['default' => 'yii']);
+            $dbUsername = $this->prompt('数据库用户名(默认为中括号内的值)' . PHP_EOL, ['default' => 'root']);
+            $dbPassword = $this->prompt('数据库密码' . PHP_EOL);
             $dbDsn = "mysql:host={$dbHost};port={$dbPort}";
         } while(!$this->testConnect($dbDsn, $dbDbname, $dbUsername, $dbPassword));
         $dbDsn = "mysql:host={$dbHost};port={$dbPort};dbname={$dbDbname}";
-        $dbTablePrefix = $this->prompt('tableprefix(默认为中括号内的值)' . PHP_EOL, ['default' => 'yii2cmf_']);
-        $this->setEnv('DB_USERNAME', $dbUsername);
-        $this->setEnv('DB_PASSWORD', $dbPassword);
-        $this->setEnv('DB_TABLE_PREFIX', $dbTablePrefix);
-        $this->setEnv('DB_DSN', $dbDsn);
+        $dbTablePrefix = $this->prompt('数据库表前缀(默认为中括号内的值)' . PHP_EOL, ['default' => 'yii2cmf_']);
+        $this->module->setEnv('DB_USERNAME', $dbUsername);
+        $this->module->setEnv('DB_PASSWORD', $dbPassword);
+        $this->module->setEnv('DB_TABLE_PREFIX', $dbTablePrefix);
+        $this->module->setEnv('DB_DSN', $dbDsn);
         Yii::$app->set('db', Yii::createObject([
                 'class' => 'yii\db\Connection',
                 'dsn' => $dbDsn,
@@ -117,21 +102,10 @@ class AppController extends Controller
         }
         return true;
     }
-    public function setEnv($name, $value)
-    {
-        $file = Yii::getAlias($this->envPath);
-        $content = preg_replace("/({$name}\s*=)\s*(.*)/", "\\1$value", file_get_contents($file));
-        file_put_contents($file, $content);
-    }
 
-    public function checkInstalled()
+    public function actionIndex()
     {
-        return file_exists(Yii::getAlias($this->installFile));
-    }
-
-    public function actionInstall()
-    {
-        if ($this->checkInstalled()) {
+        if ($this->module->checkInstalled()) {
             $this->stdout("\n  ... 已经安装过.\n\n", Console::FG_RED);
             die;
         }
@@ -146,17 +120,17 @@ class AppController extends Controller
 
 STR;
         $this->stdout($start, Console::FG_GREEN);
-        copy(Yii::getAlias('@root/.env.example'), Yii::getAlias($this->envPath));
+        copy(Yii::getAlias('@root/.env.example'), Yii::getAlias($this->module->envPath));
         $this->runAction('set-writable', ['interactive' => $this->interactive]);
         $this->runAction('set-executable', ['interactive' => $this->interactive]);
         $this->runAction('set-keys', ['interactive' => $this->interactive]);
         $this->runAction('set-db', ['interactive' => $this->interactive]);
         $appStatus = $this->select('设置当前应用模式', ['dev' => 'dev', 'prod' => 'prod']);
-        $this->setEnv('YII_DEBUG', $appStatus == 'prod' ? 'false' : 'true');
-        $this->setEnv('YII_ENV', $appStatus);
+        $this->module->setEnv('YII_DEBUG', $appStatus == 'prod' ? 'false' : 'true');
+        $this->module->setEnv('YII_ENV', $appStatus);
         Yii::$app->runAction('migrate/up', ['interactive' => false]);
         Yii::$app->runAction('cache/flush-all', ['interactive' => false]);
-        file_put_contents(Yii::getAlias($this->installFile), time());
+        $this->module->setInstalled();
         $end = <<<STR
 +=================================================+
 | Installation completed successfully, Thanks you |
@@ -173,7 +147,7 @@ STR;
 
     public function actionReset()
     {
-        @unlink(Yii::getAlias('@root/web/storage/install.txt'));
+        @unlink(Yii::getAlias($this->module->installFile));
     }
 
     public function actionUpdate()

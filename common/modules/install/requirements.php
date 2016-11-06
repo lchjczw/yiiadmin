@@ -11,7 +11,7 @@
  */
 
 // you may need to adjust this path to the correct Yii framework path
-$frameworkPath = dirname(__FILE__).'/vendor/yiisoft/yii2';
+$frameworkPath = Yii::getAlias('@root/vendor/yiisoft/yii2');
 
 if (!is_dir($frameworkPath)) {
     echo '<h1>Error</h1>';
@@ -129,4 +129,4 @@ $requirements = array(
         'memo' => 'PHP mail SMTP server required',
     ),
 );
-$requirementsChecker->checkYii()->check($requirements)->render();
+return $requirementsChecker->checkYii()->check($requirements)->getResult();

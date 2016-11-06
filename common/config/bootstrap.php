@@ -10,6 +10,7 @@ Yii::setAlias('console', dirname(dirname(__DIR__)) . '/console');
 Yii::setAlias('tests', dirname(dirname(__DIR__)) . '/tests');
 Yii::setAlias('database', dirname(dirname(__DIR__)) . '/database');
 Yii::setAlias('plugins', dirname(dirname(__DIR__)) . '/plugins');
+Yii::setAlias('install', '@common/modules/install');
 
 
 
@@ -20,4 +21,3 @@ Yii::setAlias('storageUrl', env('STORAGE_URL', env('FRONTEND_URL/storage')));
 Yii::$container->set('yidashi\markdown\Markdown', ['useUploadImage' => true]);
 Yii::$container->set('yii\widgets\LinkPager', ['firstPageLabel' => '首页', 'lastPageLabel' => '末页']);
 Yii::$container->set('common\widgets\EditorWidget', ['type' => env('EDITOR_TYPE', 'redactor')]);
-

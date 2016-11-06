@@ -5,6 +5,7 @@ return [
     'runtimePath' => '@root/runtime',
     'timezone' => 'PRC',
     'language' => 'zh-CN',
+    'bootstrap' => ['log', 'install'],
     'components' => [
         'cache' => [
             'class' => 'yii\caching\FileCache',
@@ -18,6 +19,7 @@ return [
             'currencyCode' => 'CNY',
         ],
         'assetManager' => [
+//            'forceCopy' => YII_DEBUG,
             'bundles' => [
                 'yii\web\YiiAsset' => [
                     'sourcePath' => '@common/static',
@@ -81,8 +83,17 @@ return [
             'class' => 'common\\components\\ModuleManager'
         ]
     ],
+    'modules' => [
+        'install' => 'install\\Module'
+    ],
     'as locale' => [
         'class' => 'common\behaviors\LocaleBehavior',
         'enablePreferredLanguage' => true
-    ]
+    ],
+    'on beforeAction' => function($event) {
+        if (!Yii::$app->getModule('install')->checkInstalled() && Yii::$app->controller->module->id !== 'install' && Yii::$app instanceof \yii\web\Application) {
+            \Yii::$app->getResponse()->redirect(['/install']);
+            \Yii::$app->end();
+        }
+    }
 ];
